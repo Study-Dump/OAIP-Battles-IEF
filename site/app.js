@@ -145,9 +145,6 @@ function renderTeamCard(team, winner) {
   const tests = team.tests || [];
   const failed = tests.filter((t) => !t.skipped && !t.passed).length;
   const skipped = tests.filter((t) => t.skipped).length;
-  const passed = Number(team.passed) || 0;
-  const total = Number(team.total) || 0;
-  const percent = total > 0 ? Math.min(100, Math.round((passed / total) * 100)) : 0;
   const badge = isWinner ? '<span class="badge win">победитель</span>' : '';
   const note = team.total === 0
     ? '<p class="note warn">Тестов от соперника нет.</p>'
@@ -159,8 +156,7 @@ function renderTeamCard(team, winner) {
         <span class="team-name">${esc(teamLabel(team.team))}</span>
         ${badge}
       </div>
-      <div class="score"><strong>${passed}</strong><span>/${total}</span></div>
-      <div class="score-bar" aria-hidden="true"><span style="width:${percent}%"></span></div>
+      <div class="score"><strong>${team.passed ?? 0}</strong><span>/${team.total ?? 0}</span></div>
       <dl class="stats">
         <div><dt>Атакован</dt><dd>${team.attacked_by ? esc(teamLabel(team.attacked_by)) : '—'}</dd></div>
         <div><dt>Ср. время</dt><dd>${avgTime(team)}</dd></div>
@@ -237,8 +233,8 @@ function renderBattle(battle) {
   const winner = battle.winner ? teamLabel(battle.winner) : 'ничья';
 
   els.battle.innerHTML = `
-    <div class="battle-meta">
-      <span class="battle-code">${esc(battle.battle)}</span>
+    <div class="panel-head">
+      <h2>${esc(battle.battle)}</h2>
       <p class="muted">${fmtDate(battle.timestamp)} · победитель: <strong>${esc(winner)}</strong></p>
     </div>
     <div class="score-grid">${cards}</div>
