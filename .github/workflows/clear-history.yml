@@ -4,17 +4,22 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: clear-history
+  group: battles
   cancel-in-progress: false
 
 jobs:
   clear:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.RESULTS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Reset site JSON
         run: |
@@ -35,4 +40,4 @@ jobs:
             exit 0
           fi
           git commit -m "clear history [skip ci]"
-          git push
+          git push origin HEAD:main

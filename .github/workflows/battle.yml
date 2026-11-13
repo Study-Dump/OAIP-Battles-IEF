@@ -5,20 +5,20 @@ on:
     branches: ['vs/*']
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: battle-${{ github.ref }}
+  group: battles
   cancel-in-progress: false
 
 jobs:
-  battle:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          persist-credentials: false
 
       - name: Parse vs/A-B
         run: |
@@ -72,20 +72,66 @@ jobs:
             --battle "vs/${TEAM_A}-${TEAM_B}" \
             --out site/results.json
 
-      - name: Commit results to main
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: battle-result
+          path: site/results.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.RESULTS_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: battle-result
+          path: ${{ runner.temp }}/battle-result
+
+      - name: Append result to history and push
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          artifact = os.path.join(os.environ["RUNNER_TEMP"], "battle-result", "results.json")
+          with open(artifact, encoding="utf-8") as f:
+              entry = json.load(f)
+          if not entry.get("id"):
+              raise SystemExit("empty battle result")
+
+          with open("site/history.json", encoding="utf-8") as f:
+              history = json.load(f)
+          if not isinstance(history.get("battles"), list):
+              history = {"battles": []}
+
+          if not any(b.get("id") == entry["id"] for b in history["battles"]):
+              history["battles"].append(entry)
+
+          with open("site/results.json", "w", encoding="utf-8") as f:
+              json.dump(entry, f, indent=2, ensure_ascii=False)
+          with open("site/history.json", "w", encoding="utf-8") as f:
+              json.dump(history, f, indent=2, ensure_ascii=False)
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              f.write(f"BATTLE={entry['battle']}\n")
+          PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p "$RUNNER_TEMP/site"
-          cp site/results.json site/history.json "$RUNNER_TEMP/site/"
-          git restore site/results.json site/history.json 2>/dev/null || true
-          git checkout -B battle-results origin/main
-          cp "$RUNNER_TEMP/site/results.json" "$RUNNER_TEMP/site/history.json" site/
           git add site/results.json site/history.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "battle: vs/${TEAM_A}-${TEAM_B} [skip ci]"
+          git commit -m "battle: ${BATTLE} [skip ci]"
           git push origin HEAD:main

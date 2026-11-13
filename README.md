@@ -83,7 +83,7 @@ tests/teamM/0N_short_name/expected_output.txt
    - компилирует оба `solution.cpp`;
    - прогоняет `tests/teamA/0B_*` против teamA и `tests/teamB/0A_*` против teamB;
    - определяет победителя;
-   - коммитит `site/results.json` и `site/history.json` в `main`;
+   - в отдельном job дописывает результат в `site/results.json` и `site/history.json` в `main`;
    - обновляет GitHub Pages.
 
 Ветку `vs/A-B` можно удалить после баттла.
@@ -150,12 +150,31 @@ python3 scripts/compare.py
 
 | Workflow | Триггер | Что делает |
 |---|---|---|
-| `Battle` | push в `vs/*` | собирает, тестирует, пишет результаты в `main` |
-| `Deploy Pages` | push в `main`, завершение `Battle` / `Clear History` | публикует `site/` на Pages |
+| `Battle` | push в `vs/*` | job `test` собирает и тестирует, job `publish` дописывает результат в `main` |
+| `Deploy Pages` | push в `main`, завершение `Battle` / `Clear History`, ручной запуск | публикует `site/` на Pages |
 | `Clear History` | ручной `workflow_dispatch` | сбрасывает JSON |
 
 В настройках репозитория Pages должен быть включён с источником **GitHub Actions**
 (Settings → Pages → Build and deployment → Source: GitHub Actions).
+
+### Настройка прав на запись (один раз)
+
+Тестовый job запускает код команд на раннере, поэтому у него нет прав на запись.
+Публикацией занимается отдельный job `publish`, которому нужен один из вариантов:
+
+1. **Fine-grained PAT (рекомендуется):** создайте токен с доступом только к этому
+   репозиторию и правом **Contents: Read and write**, затем добавьте его в
+   Settings → Secrets and variables → Actions как `RESULTS_TOKEN`.
+2. **Разрешить write для `GITHUB_TOKEN`:** в настройках организации
+   Study-Dump → Actions → General → Workflow permissions выбрать
+   **Read and write permissions**. Проще, но меняет политику для всех репозиториев
+   организации.
+
+Workflow использует `secrets.RESULTS_TOKEN`, а если его нет — `GITHUB_TOKEN`.
+Fine-grained PAT нужно продлевать до истечения срока.
+
+`[skip ci]` в коммитах результатов предотвращает повторный запуск по push;
+Pages обновляется через `workflow_run` после завершения `Battle` / `Clear History`.
 
 ---
 
