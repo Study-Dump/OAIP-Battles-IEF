@@ -190,7 +190,7 @@ function renderFailure(test) {
   return `
     <details class="failure">
       <summary>
-        <span class="failure-title">${esc(teamLabel(test.team))} · ${esc(test.name)}</span>
+        <span class="failure-title"><span class="team-code">${esc(teamLabel(test.team))}</span> · ${esc(test.name)}</span>
         <span class="meta">автор: ${esc(teamLabel(test.author))} · ${esc(reason)} · ${fmtMs(test.time_sec)}</span>
       </summary>
       <div class="failure-body">
@@ -224,7 +224,9 @@ function renderBattle(battle) {
       .forEach((test) => failures.push({ team: team.team, ...test }));
   });
 
-  const cards = teams.map((team) => renderTeamCard(team, battle.winner)).join('');
+  const cards = teams
+    .map((team) => renderTeamCard(team, battle.winner))
+    .join('<span class="vs" aria-hidden="true">VS</span>');
   const failuresHtml = failures.length
     ? failures.map(renderFailure).join('')
     : emptyState('Провалов нет', '');
