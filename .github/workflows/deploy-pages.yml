@@ -28,6 +28,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Write repo info
+        run: |
+          python3 -c 'import json, os; json.dump({"repository": os.environ["GITHUB_REPOSITORY"]}, open("site/repo.json", "w"), indent=2)'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -39,6 +39,9 @@ sol_a
 sol_b
 partial_*.json
 
+# Generated at Pages deploy time
+/site/repo.json
+
 # Python
 __pycache__/
 *.py[cod]

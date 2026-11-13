@@ -1,4 +1,6 @@
-const REPO = 'Study-Dump/OAIP-Battles-IEF';
+const DEFAULT_REPO = 'Study-Dump/OAIP-Battles-IEF';
+const REPO_PATTERN = /^[\w.-]+\/[\w.-]+$/;
+const GROUP_PREFIX = '67810';
 const TEAMS = [1, 2, 3, 4, 5];
 
 const REASON_LABELS = {
@@ -20,8 +22,9 @@ const els = {
   matrix: document.getElementById('panel-matrix'),
   history: document.getElementById('panel-history'),
   clear: document.getElementById('clear-btn'),
-  reload: document.getElementById('reload-btn'),
 };
+
+let repo = DEFAULT_REPO;
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -33,8 +36,18 @@ function esc(value) {
   }[ch]));
 }
 
+function groupLabel(number) {
+  return `${GROUP_PREFIX}${number}`;
+}
+
 function teamLabel(team) {
-  return team == null || team === '' ? 'ничья' : `team${team}`;
+  if (team == null || team === '') return 'ничья';
+  const value = String(team);
+  return /^[1-5]$/.test(value) ? groupLabel(value) : value;
+}
+
+function repoUrl(path = '') {
+  return `https://github.com/${repo}${path}`;
 }
 
 function fmtDate(ts) {
@@ -64,13 +77,13 @@ function battleTeams(battle) {
   return Array.isArray(battle.teams) ? battle.teams : [];
 }
 
-async function fetchJson(url, fallback) {
+async function fetchJson(url, fallback, quiet = false) {
   try {
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
-    console.warn(`Не удалось загрузить ${url}:`, error);
+    if (!quiet) console.warn(`Не удалось загрузить ${url}:`, error);
     return fallback;
   }
 }
@@ -90,9 +103,10 @@ function selectedBattle() {
 
 function emptyState(title, text, href) {
   const link = href
-    ? `<a class="btn ghost" href="${href}" target="_blank" rel="noopener">Открыть GitHub</a>`
+    ? `<a class="btn" href="${href}" target="_blank" rel="noopener">GitHub</a>`
     : '';
-  return `<div class="empty-state"><h3>${title}</h3><p>${text}</p>${link}</div>`;
+  const paragraph = text ? `<p>${text}</p>` : '';
+  return `<div class="empty-state"><h3>${title}</h3>${paragraph}${link}</div>`;
 }
 
 function renderAll() {
@@ -112,7 +126,7 @@ function renderSelector() {
   }
 
   els.select.innerHTML = all.map((battle) => {
-    const winner = battle.winner ? `победитель: team${battle.winner}` : 'ничья';
+    const winner = battle.winner ? `победитель: ${teamLabel(battle.winner)}` : 'ничья';
     return `<option value="${esc(battle.id)}">${esc(battle.battle)} — ${fmtDate(battle.timestamp)} — ${winner}</option>`;
   }).join('');
 
@@ -131,9 +145,9 @@ function renderTeamCard(team, winner) {
   const tests = team.tests || [];
   const failed = tests.filter((t) => !t.skipped && !t.passed).length;
   const skipped = tests.filter((t) => t.skipped).length;
-  const badge = isWinner ? '<span class="badge win">Победитель</span>' : '';
+  const badge = isWinner ? '<span class="badge win">победитель</span>' : '';
   const note = team.total === 0
-    ? '<p class="note warn">Соперник не прислал тестов — счёт 0/0.</p>'
+    ? '<p class="note warn">Тестов от соперника нет.</p>'
     : '';
 
   return `
@@ -163,11 +177,12 @@ function renderFailure(test) {
   if (test.reason === 'runtime_error' && test.exit_code != null) {
     reason += ` (код ${test.exit_code})`;
   }
+
   const stderr = test.stderr
     ? `<div class="pane"><h4>stderr</h4><pre class="bad">${esc(test.stderr)}</pre></div>`
     : '';
   const diff = test.diff
-    ? `<p class="diff">Первое расхождение — строка ${test.diff.first_diff_line}:
+    ? `<p class="diff">Строка ${test.diff.first_diff_line}:
          <code>${esc(test.diff.actual_line || '(пусто)')}</code> вместо
          <code>${esc(test.diff.expected_line || '(пусто)')}</code></p>`
     : '';
@@ -194,9 +209,9 @@ function renderFailure(test) {
 function renderBattle(battle) {
   if (!battle) {
     els.battle.innerHTML = emptyState(
-      'Пока нет баттлов',
-      'Создайте в GitHub ветку <code>vs/A-B</code> (A и B — номера команд от 1 до 5) и сделайте в ней коммит. CI соберёт решения, прогонит тесты и обновит эту страницу.',
-      `https://github.com/${REPO}/branches`
+      'Нет баттлов',
+      'Создайте ветку <code>vs/A-B</code> и сделайте коммит.',
+      repoUrl('/branches')
     );
     return;
   }
@@ -212,17 +227,17 @@ function renderBattle(battle) {
   const cards = teams.map((team) => renderTeamCard(team, battle.winner)).join('');
   const failuresHtml = failures.length
     ? failures.map(renderFailure).join('')
-    : emptyState('Провалов нет', 'Все тесты соперника пройдены.');
+    : emptyState('Провалов нет', '');
+  const winner = battle.winner ? teamLabel(battle.winner) : 'ничья';
 
   els.battle.innerHTML = `
     <div class="panel-head">
       <h2>${esc(battle.battle)}</h2>
-      <p class="muted">${fmtDate(battle.timestamp)} · победитель: <strong>${esc(teamLabel(battle.winner))}</strong></p>
+      <p class="muted">${fmtDate(battle.timestamp)} · победитель: <strong>${esc(winner)}</strong></p>
     </div>
     <div class="score-grid">${cards}</div>
     <div class="panel-head">
       <h2>Провалы <span class="count">${failures.length}</span></h2>
-      <p class="muted">Input, фактический и ожидаемый вывод по каждому сломанному тесту.</p>
     </div>
     <div class="failures">${failuresHtml}</div>
   `;
@@ -243,7 +258,7 @@ function renderMatrix() {
 
   let rows = '';
   TEAMS.forEach((defender) => {
-    rows += `<tr><th scope="row">team${defender}</th>`;
+    rows += `<tr><th scope="row">${groupLabel(defender)}</th>`;
     TEAMS.forEach((attacker) => {
       if (defender === attacker) {
         rows += '<td class="diag">—</td>';
@@ -264,14 +279,13 @@ function renderMatrix() {
   els.matrix.innerHTML = `
     <div class="panel-head">
       <h2>Краш-матрица</h2>
-      <p class="muted">Строка — кто защищается, столбец — кто атакует. В ячейке — пройдено/всего по всем баттлам истории.</p>
     </div>
     <div class="table-wrap">
       <table class="matrix">
         <thead>
           <tr>
             <th scope="col">Защита \\ Атака</th>
-            ${TEAMS.map((t) => `<th scope="col">team${t}</th>`).join('')}
+            ${TEAMS.map((team) => `<th scope="col">${groupLabel(team)}</th>`).join('')}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -288,7 +302,7 @@ function renderMatrix() {
 function renderHistory() {
   const all = battles();
   if (!all.length) {
-    els.history.innerHTML = emptyState('История пуста', 'Здесь появятся все прошедшие баттлы.');
+    els.history.innerHTML = emptyState('История пуста', '');
     return;
   }
 
@@ -296,7 +310,7 @@ function renderHistory() {
     const scores = battleTeams(battle)
       .map((team) => `${teamLabel(team.team)}: ${team.passed ?? 0}/${team.total ?? 0}`)
       .join(' · ');
-    const winner = battle.winner ? `победитель: team${esc(battle.winner)}` : 'ничья';
+    const winner = battle.winner ? `победитель: ${esc(teamLabel(battle.winner))}` : 'ничья';
     return `
       <article class="history-row">
         <div class="history-main">
@@ -306,7 +320,7 @@ function renderHistory() {
         </div>
         <div class="history-side">
           <span class="badge ${battle.winner ? 'win' : ''}">${winner}</span>
-          <button type="button" class="btn ghost" data-open="${esc(battle.id)}">Открыть</button>
+          <button type="button" class="btn" data-open="${esc(battle.id)}">Открыть</button>
         </div>
       </article>
     `;
@@ -315,7 +329,6 @@ function renderHistory() {
   els.history.innerHTML = `
     <div class="panel-head">
       <h2>История <span class="count">${all.length}</span></h2>
-      <p class="muted">Все баттлы, сохранённые в history.json.</p>
     </div>
     <div class="history-list">${rows}</div>
   `;
@@ -333,10 +346,17 @@ function setTab(name) {
 }
 
 async function load() {
-  const [results, historyData] = await Promise.all([
+  const [results, historyData, repoData] = await Promise.all([
     fetchJson('results.json', null),
     fetchJson('history.json', { battles: [] }),
+    fetchJson('repo.json', null, true),
   ]);
+
+  if (repoData && REPO_PATTERN.test(repoData.repository || '')) {
+    repo = repoData.repository;
+    const repoLink = document.getElementById('repo-link');
+    if (repoLink) repoLink.href = repoUrl();
+  }
 
   state.results = results && results.id ? results : null;
   state.history = historyData && Array.isArray(historyData.battles)
@@ -356,13 +376,12 @@ async function load() {
 }
 
 els.select.addEventListener('change', (event) => selectBattle(event.target.value));
-els.reload.addEventListener('click', load);
 els.clear.addEventListener('click', () => {
   const ok = window.confirm(
-    'Очистить историю баттлов? Откроется страница workflow в GitHub — там нужно нажать «Run workflow».'
+    'Очистить историю? Откроется workflow в GitHub — нажмите «Run workflow».'
   );
   if (ok) {
-    window.open(`https://github.com/${REPO}/actions/workflows/clear-history.yml`, '_blank', 'noopener');
+    window.open(repoUrl('/actions/workflows/clear-history.yml'), '_blank', 'noopener');
   }
 });
 

@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#080d18">
-  <meta name="description" content="Результаты баттлов учебных C++ решений: счёт, провалы, краш-матрица и история.">
-  <title>OAIP Battles — дашборд</title>
+  <meta name="theme-color" content="#0b0d11">
+  <title>OAIP Battles</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">Перейти к содержимому</a>
+  <a class="skip-link" href="#main">К содержимому</a>
 
   <header class="hero">
     <div class="hero-inner">
@@ -29,12 +28,9 @@
             <line x1="3" x2="5" y1="19" y2="21"></line>
           </svg>
         </span>
-        <div>
-          <h1>OAIP Battles</h1>
-          <p class="tagline">Автоматические баттлы учебных C++ решений</p>
-        </div>
+        <h1>OAIP Battles</h1>
       </div>
-      <a class="repo-link" href="https://github.com/Study-Dump/OAIP-Battles-IEF" target="_blank" rel="noopener">Репозиторий</a>
+      <a id="repo-link" class="repo-link" href="https://github.com/Study-Dump/OAIP-Battles-IEF" target="_blank" rel="noopener">GitHub</a>
     </div>
   </header>
 
@@ -45,13 +41,10 @@
         <option>Загрузка…</option>
       </select>
     </label>
-    <div class="toolbar-actions">
-      <button type="button" id="reload-btn" class="btn ghost">Обновить</button>
-      <button type="button" id="clear-btn" class="btn danger">Очистить историю</button>
-    </div>
+    <button type="button" id="clear-btn" class="btn danger">Очистить историю</button>
   </div>
 
-  <nav class="tabs" role="tablist" aria-label="Разделы дашборда">
+  <nav class="tabs" role="tablist" aria-label="Разделы">
     <button type="button" role="tab" id="tab-battle" class="tab active" aria-selected="true" aria-controls="panel-battle" data-tab="battle">Баттл</button>
     <button type="button" role="tab" id="tab-matrix" class="tab" aria-selected="false" aria-controls="panel-matrix" data-tab="matrix">Краш-матрица</button>
     <button type="button" role="tab" id="tab-history" class="tab" aria-selected="false" aria-controls="panel-history" data-tab="history">История</button>
@@ -63,12 +56,8 @@
     <section id="panel-history" class="panel" role="tabpanel" aria-labelledby="tab-history"></section>
   </main>
 
-  <footer>
-    <span>Тесты пишут команды. Победитель — больше пройденных тестов, при равенстве — меньше среднее время.</span>
-  </footer>
-
   <noscript>
-    <p class="noscript">Для отображения дашборда нужен JavaScript.</p>
+    <p class="noscript">Нужен JavaScript.</p>
   </noscript>
 
   <script src="app.js"></script>
