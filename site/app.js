@@ -237,8 +237,8 @@ function renderBattle(battle) {
   const winner = battle.winner ? teamLabel(battle.winner) : 'ничья';
 
   els.battle.innerHTML = `
-    <div class="panel-head">
-      <h2>${esc(battle.battle)}</h2>
+    <div class="battle-meta">
+      <span class="battle-code">${esc(battle.battle)}</span>
       <p class="muted">${fmtDate(battle.timestamp)} · победитель: <strong>${esc(winner)}</strong></p>
     </div>
     <div class="score-grid">${cards}</div>
