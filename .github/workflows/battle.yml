@@ -1,0 +1,91 @@
+name: Battle
+
+on:
+  push:
+    branches: ['vs/*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: battle-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  battle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse vs/A-B
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME}"
+          if [[ ! "$branch" =~ ^vs/([1-5])-([1-5])$ ]]; then
+            echo "::error::Branch must be named vs/A-B with A,B in 1..5 (got: $branch)"
+            exit 1
+          fi
+          a="${BASH_REMATCH[1]}"
+          b="${BASH_REMATCH[2]}"
+          if [[ "$a" == "$b" ]]; then
+            echo "::error::Team cannot fight itself: $branch"
+            exit 1
+          fi
+          {
+            echo "TEAM_A=$a"
+            echo "TEAM_B=$b"
+          } >> "$GITHUB_ENV"
+          echo "Battle: team$a vs team$b"
+
+      - name: Compile solutions
+        run: |
+          set -euo pipefail
+          g++ -O2 -std=c++17 -o "$RUNNER_TEMP/sol_a" "teams/team${TEAM_A}/solution.cpp"
+          g++ -O2 -std=c++17 -o "$RUNNER_TEMP/sol_b" "teams/team${TEAM_B}/solution.cpp"
+
+      - name: Run tests for team A
+        run: |
+          python3 scripts/runner.py \
+            --solution "$RUNNER_TEMP/sol_a" \
+            --tests-dir "tests/team${TEAM_A}" \
+            --author-prefix "0${TEAM_B}" \
+            --team "$TEAM_A" --opponent "$TEAM_B" \
+            --out "$RUNNER_TEMP/partial_a.json"
+
+      - name: Run tests for team B
+        run: |
+          python3 scripts/runner.py \
+            --solution "$RUNNER_TEMP/sol_b" \
+            --tests-dir "tests/team${TEAM_B}" \
+            --author-prefix "0${TEAM_A}" \
+            --team "$TEAM_B" --opponent "$TEAM_A" \
+            --out "$RUNNER_TEMP/partial_b.json"
+
+      - name: Merge results
+        run: |
+          python3 scripts/merge_results.py \
+            --a "$RUNNER_TEMP/partial_a.json" \
+            --b "$RUNNER_TEMP/partial_b.json" \
+            --battle "vs/${TEAM_A}-${TEAM_B}" \
+            --out site/results.json
+
+      - name: Commit results to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p "$RUNNER_TEMP/site"
+          cp site/results.json site/history.json "$RUNNER_TEMP/site/"
+          git restore site/results.json site/history.json 2>/dev/null || true
+          git checkout -B battle-results origin/main
+          cp "$RUNNER_TEMP/site/results.json" "$RUNNER_TEMP/site/history.json" site/
+          git add site/results.json site/history.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "battle: vs/${TEAM_A}-${TEAM_B} [skip ci]"
+          git push origin HEAD:main
